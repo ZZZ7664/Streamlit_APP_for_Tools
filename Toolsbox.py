@@ -25,6 +25,9 @@ from collections import defaultdict
 import shutil
 import multiprocessing
 
+ROOT_DIR = Path(__file__).parent          # 项目根目录
+ASSETS_DIR = ROOT_DIR / "assets"          # assets 文件夹
+
 # ================================================================================
 # ================================================================================
 #  SCRIPT 1: 核心常量与规则库
@@ -267,18 +270,22 @@ def generate_pdf_report(student_data, radar_image_bytes, test_items):
         def __init__(self, student_name, class_name, test_date):
             super().__init__()
             self.student_name = str(student_name)
-            self.class_name = str(class_name)
-            self.test_date = str(test_date)
-            
-            if os.path.exists("SimHei.ttf"):
-                # fpdf2的推荐用法，不再需要 uni=True
-                self.add_font('SimHei', '', 'SimHei.ttf')
+            self.class_name   = str(class_name)
+            self.test_date    = str(test_date)
+
+            # 字体路径
+            font_path = ASSETS_DIR / "fonts" / "SimHei.ttf"
+            if font_path.exists():
+                self.add_font('SimHei', '', str(font_path))
                 self.font_family = 'SimHei'
             else:
                 self.font_family = 'Helvetica'
                 if 'font_warning_sent' not in st.session_state:
                     st.warning("【重要】未找到 SimHei.ttf 字体文件，PDF中的中文将是乱码。")
                     st.session_state.font_warning_sent = True
+
+            # 必须放在方法里！
+            self.set_auto_page_break(auto=True, margin=15)
 
         def header(self):
             if self.page_no() == 1: return
@@ -311,9 +318,12 @@ def generate_pdf_report(student_data, radar_image_bytes, test_items):
         pdf = PDF(student_data.get('姓名', 'N/A'), student_data.get('班级', 'N/A'), pd.Timestamp.now().strftime("%Y-%m-%d"))
         pdf.add_page(); pdf.set_fill_color(230, 240, 255); pdf.rect(0, 0, 210, 297, 'F')
         
-        if os.path.exists('logo.png'):
-            try: pdf.image('logo.png', x=85, y=40, w=40)
-            except Exception: pass
+        logo_path = ASSETS_DIR / "images" / "logo.png"
+        if logo_path.exists():
+            try:
+                pdf.image(str(logo_path), x=85, y=40, w=40)
+            except Exception:
+                pass
             
         pdf.set_y(90); pdf.set_font(pdf.font_family, '', 36); pdf.set_text_color(22, 118, 248); pdf.cell(0, 20, '个人体质健康报告', 0, 1, 'C')
         pdf.set_y(150); pdf.set_font(pdf.font_family, '', 18); pdf.set_text_color(50, 50, 50)
@@ -373,11 +383,13 @@ def generate_pdf_report(student_data, radar_image_bytes, test_items):
         pdf.section_card("📈 各项指标详解", "📈", content_details)
         pdf.add_page()
         pdf.section_card("🏃 个性化训练计划", "🏃", content_suggestions)
-        appendix_image_path = 'pkffbnvy.png'
+        appendix_image_path = str(ASSETS_DIR / "images" / "pkffbnvy.png")
         if os.path.exists(appendix_image_path):
             try:
-                pdf.add_page(); pdf.section_card("📎 附录：评分标准参考", "📎", lambda p: p.image(appendix_image_path, w=180))
-            except Exception: pass
+                pdf.add_page()
+                pdf.section_card("📎 附录：评分标准参考", "📎", lambda p: p.image(appendix_image_path, w=180))
+            except Exception:
+                pass
         
         return bytes(pdf.output())
 
@@ -1738,7 +1750,11 @@ def create_timeline(suggestions):
 
 # --- 侧边栏 ---
 with st.sidebar:
-    st.image('logo.png' if os.path.exists('logo.png') else 'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png', width=100)
+    logo_path = ASSETS_DIR / "images" / "logo.png"
+    st.image(
+    str(logo_path) if logo_path.exists() else
+    'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png',
+    width=100) 
     st.title("导航与信息")
     st.info("""**欢迎使用学生体质健康分析平台！**\n\n请在主界面选择您需要的功能。""")
     st.warning("部分工具箱功能需要在您自己的电脑上本地运行此应用。")
